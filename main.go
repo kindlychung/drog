@@ -160,6 +160,12 @@ func ExtToMeta(ext string, title string) (Mime, drive.File) {
 		sourceMime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 	case ".odt":
 		sourceMime = "application/vnd.oasis.opendocument.text"
+	case ".pdf":
+		sourceMime = "application/pdf"
+	case ".png":
+		sourceMime = "image/png"
+	case ".jpg", ".jpeg":
+		sourceMime = "image/jpeg"
 	case ".html":
 		sourceMime = "text/html"
 	default:
