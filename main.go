@@ -1,18 +1,22 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
+	neturl "net/url"
 	"os"
 	"os/user"
 	"path"
 	"path/filepath"
 
+	"github.com/0xAX/notificator"
 	"google.golang.org/api/googleapi"
 
 	"golang.org/x/net/context"
@@ -173,6 +177,10 @@ func ExtToMeta(ext string, title string) (Mime, drive.File) {
 	return sourceMime, metaInfo
 }
 
+func validStdinType(ext string) bool {
+	return ext == ".txt" || ext == ".html" || ext == ".csv"
+}
+
 // GetMetaInfo get mime type of source file and meta info on drive
 func GetMetaInfo(path string, title string) (Mime, drive.File) {
 	ext := filepath.Ext(path)
@@ -183,7 +191,12 @@ func GetMetaInfo(path string, title string) (Mime, drive.File) {
 
 // PrintResult print drive upload result
 func PrintResult(res *drive.File) {
-	fmt.Printf("Upload succeeded. \nFilename in drive: %s \nID in drive: %s \nMIME type: %s\n", res.Name, res.Id, res.MimeType)
+	notify := notificator.New(notificator.Options{
+		DefaultIcon: "icon/drog.png",
+		AppName:     "Drog - cmd google drive uploader",
+	})
+	msg := fmt.Sprintf("Filename in drive: %s \nID in drive: %s \nMIME type: %s\n", res.Name, res.Id, res.MimeType)
+	notify.Push("Upload succeeded", msg, "", notificator.UR_NORMAL)
 }
 
 // Upload upload file
@@ -196,13 +209,17 @@ func (du *DriveUploader) Upload(path string, title string) {
 	PrintResult(res)
 }
 
+// UploadFromReader upload from content of an io.Reader
+func (du *DriveUploader) UploadFromReader(reader io.Reader, title string, ext string) {
+	sourceMime, metaInfo := ExtToMeta(ext, title)
+	res, err := du.service.Files.Create(&metaInfo).Media(reader, googleapi.ContentType(sourceMime)).Do()
+	conv.CheckErr(err)
+	PrintResult(res)
+}
+
 // UploadBytes upload a raw byte array
 func (du *DriveUploader) UploadBytes(raw []byte, title string, ext string) {
-	sourceMime, metaInfo := ExtToMeta(ext, title)
-	res, err := du.service.Files.Create(&metaInfo).Media(bytes.NewReader(raw), googleapi.ContentType(sourceMime)).Do()
-	conv.CheckErr(err)
-	fmt.Printf("Upload succeeded. \nFilename in drive: %s \nID in drive: %s \nMIME type: %s\n", res.Name, res.Id, res.MimeType)
-	PrintResult(res)
+	du.UploadFromReader(bytes.NewReader(raw), title, ext)
 }
 
 const helpMsg = `
@@ -210,18 +227,45 @@ drog: A commandline tool for uploading files to google drive
 
 Usage: 
 drog <path> <title>
+echo "something" | drog -- <title> <.csv|.html|.txt>
+drog <--url|-u> <http://...> <title>
 `
 
 func main() {
 	args := os.Args[1:]
+	if len(args) < 2 || 3 < len(args) {
+		log.Fatal(helpMsg)
+	}
 	if args[0] == "-h" || args[0] == "--help" {
 		println(helpMsg)
 		os.Exit(0)
 	}
 	du := NewUploader()
 	if args[0] == "--" {
-		// read from stdin, not implemented yet
+		if len(args) != 3 {
+			log.Fatal(helpMsg)
+		}
+		title := args[1]
+		ext := args[2]
+		if !validStdinType(ext) {
+			log.Fatal(helpMsg)
+		}
+		reader := bufio.NewReader(os.Stdin)
+		du.UploadFromReader(reader, title, ext)
 		os.Exit(0)
+	}
+	if args[0] == "--url" || args[0] == "-u" {
+		if len(args) != 3 {
+			log.Fatal(helpMsg)
+		}
+		link := args[1]
+		_, err := neturl.Parse(link)
+		title := args[2]
+		conv.CheckErr(err)
+		response, err := http.Get(link)
+		conv.CheckErr(err)
+		reader := bufio.NewReader(response.Body)
+		du.UploadFromReader(reader, title, ".html")
 	}
 	sourcePath := args[0]
 	title := args[1]

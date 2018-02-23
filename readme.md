@@ -30,6 +30,6 @@ See `drog -h`
 
 ## Todo
 
-* Upload stdin content, e.g. `xsel -b | drog -- --type txt`
+* Upload stdin content, e.g. `xsel -b | drog -- <title> <ext>`
 * Upload webpage via URL, e.g `drog --url http://www.google.com`
     * In this case you might need to correct the image links in the webpage. You can use this tool: https://github.com/PuerkitoBio/goquery
