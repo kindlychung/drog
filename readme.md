@@ -1,3 +1,4 @@
+![drog-icon](https://bitbucket.org/kindlychung/drog/src/c0e3bac3628850ece6a10d284a90e05d7e175174/icon/drog.png)
 # drog: a commandline tool for uploading files to google drive
 
 A tool that uploads a file to google drive and converts it into corresponding google format when possible. 
