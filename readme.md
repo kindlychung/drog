@@ -29,8 +29,9 @@ go get github.com/kindlychung/drog
 
 See `drog -h`
 
-## Todo
-
-* Upload stdin content, e.g. `xsel -b | drog -- <title> <ext>`
-* Upload webpage via URL, e.g `drog --url http://www.google.com`
-    * In this case you might need to correct the image links in the webpage. You can use this tool: https://github.com/PuerkitoBio/goquery
+```
+Usage:
+drog <path> <title>
+echo "something" | drog -- <title> <.csv|.html|.txt>
+drog <--url|-u> <http://...> <title>
+```
