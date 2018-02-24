@@ -16,9 +16,13 @@ import (
 	"path"
 	"path/filepath"
 
-	"github.com/0xAX/notificator"
+	"github.com/PuerkitoBio/goquery"
+
+	"github.com/gen2brain/dlgs"
+
 	"google.golang.org/api/googleapi"
 
+	"github.com/gen2brain/beeep"
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -184,28 +188,26 @@ func validStdinType(ext string) bool {
 // GetMetaInfo get mime type of source file and meta info on drive
 func GetMetaInfo(path string, title string) (Mime, drive.File) {
 	ext := filepath.Ext(path)
-	println("Extension: ", ext) //##debug
 	// set to google doc by default
 	return ExtToMeta(ext, title)
 }
 
 // PrintResult print drive upload result
 func PrintResult(res *drive.File) {
-	notify := notificator.New(notificator.Options{
-		DefaultIcon: "icon/drog.png",
-		AppName:     "Drog - cmd google drive uploader",
-	})
 	msg := fmt.Sprintf("Filename in drive: %s \nID in drive: %s \nMIME type: %s\n", res.Name, res.Id, res.MimeType)
-	notify.Push("Upload succeeded", msg, "", notificator.UR_NORMAL)
+	err := beeep.Notify("Upload succeeded", msg, "assets/information.png")
+	if err != nil {
+		panic(err)
+	}
 }
 
 // Upload upload file
 func (du *DriveUploader) Upload(path string, title string) {
 	sourceMime, metaInfo := GetMetaInfo(path, title)
 	f, err := os.Open(path)
-	conv.CheckErr(err)
+	conv.BubbleErr(err, "Upload FAILED")
 	res, err := du.service.Files.Create(&metaInfo).Media(f, googleapi.ContentType(sourceMime)).Do()
-	conv.CheckErr(err)
+	conv.BubbleErr(err, "Upload FAILED")
 	PrintResult(res)
 }
 
@@ -213,7 +215,7 @@ func (du *DriveUploader) Upload(path string, title string) {
 func (du *DriveUploader) UploadFromReader(reader io.Reader, title string, ext string) {
 	sourceMime, metaInfo := ExtToMeta(ext, title)
 	res, err := du.service.Files.Create(&metaInfo).Media(reader, googleapi.ContentType(sourceMime)).Do()
-	conv.CheckErr(err)
+	conv.BubbleErr(err, "Upload FAILED")
 	PrintResult(res)
 }
 
@@ -226,8 +228,8 @@ const helpMsg = `
 drog: A commandline tool for uploading files to google drive
 
 Usage: 
-drog <path> <title>
-echo "something" | drog -- <title> <.csv|.html|.txt>
+drog <path> <-ask|any text as tile>
+echo "something" | drog -- <-ask|any text as title> <-ask|.csv|.html|.txt>
 drog <--url|-u> <http://...> <title>
 `
 
@@ -246,8 +248,19 @@ func main() {
 			log.Fatal(helpMsg)
 		}
 		title := args[1]
+		if title == "-ask" {
+			t, _, err := dlgs.Entry("Title of upload", "Please enter the title:", "any title")
+			title = t
+			conv.CheckErr(err)
+		}
 		ext := args[2]
+		if ext == "-ask" {
+			e, _, err := dlgs.Entry("Filetype of upload", "Please enter the file extension:", ".txt")
+			ext = e
+			conv.CheckErr(err)
+		}
 		if !validStdinType(ext) {
+			fmt.Printf("invalide extension: %s", ext)
 			log.Fatal(helpMsg)
 		}
 		reader := bufio.NewReader(os.Stdin)
@@ -260,14 +273,27 @@ func main() {
 		}
 		link := args[1]
 		_, err := neturl.Parse(link)
+		conv.CheckErr(err)
+		httpDoc, err := goquery.NewDocument(link)
+		conv.CheckErr(err)
+		httpTitle := httpDoc.Find("title").Text()
 		title := args[2]
-		conv.CheckErr(err)
-		response, err := http.Get(link)
-		conv.CheckErr(err)
-		reader := bufio.NewReader(response.Body)
-		du.UploadFromReader(reader, title, ".html")
+		if title == "-ask" {
+			title, _, err = dlgs.Entry("Title of upload", "Please enter the title:", httpTitle)
+			conv.CheckErr(err)
+		} else if title == "-onpage" {
+			title = httpTitle
+		}
+		httpBody := httpDoc.Find("body").Text()
+		du.UploadBytes([]byte(httpBody), title, ".html")
+		os.Exit(0)
 	}
 	sourcePath := args[0]
 	title := args[1]
+	if title == "-ask" {
+		t, _, err := dlgs.Entry("Title of upload", "Please enter the title:", "any title")
+		title = t
+		conv.CheckErr(err)
+	}
 	du.Upload(sourcePath, title)
 }
