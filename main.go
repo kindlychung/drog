@@ -288,8 +288,8 @@ func main() {
 			title = httpTitle
 		}
 		title += drogMark
-		httpBody := httpDoc.Find("body").Text()
-		du.UploadBytes([]byte(httpBody), title, ".html")
+		response, err := http.Get(link)
+		du.UploadFromReader(bufio.NewReader(response.Body), title, ".html")
 		os.Exit(0)
 	}
 	sourcePath := args[0]
