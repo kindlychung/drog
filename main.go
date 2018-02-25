@@ -224,6 +224,8 @@ func (du *DriveUploader) UploadBytes(raw []byte, title string, ext string) {
 	du.UploadFromReader(bytes.NewReader(raw), title, ext)
 }
 
+const drogMark = "  drogpost"
+
 const helpMsg = `
 drog: A commandline tool for uploading files to google drive
 
@@ -253,6 +255,7 @@ func main() {
 			title = t
 			conv.CheckErr(err)
 		}
+		title += drogMark
 		ext := args[2]
 		if ext == "-ask" {
 			e, _, err := dlgs.Entry("Filetype of upload", "Please enter the file extension:", ".txt")
@@ -284,6 +287,7 @@ func main() {
 		} else if title == "-onpage" {
 			title = httpTitle
 		}
+		title += drogMark
 		httpBody := httpDoc.Find("body").Text()
 		du.UploadBytes([]byte(httpBody), title, ".html")
 		os.Exit(0)
@@ -295,5 +299,6 @@ func main() {
 		title = t
 		conv.CheckErr(err)
 	}
+	title += drogMark
 	du.Upload(sourcePath, title)
 }
